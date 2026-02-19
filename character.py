@@ -55,10 +55,10 @@ def health_label(health: int, max_health: int) -> str:
 SKILLS = {
     "heavy_machinery": ("strength", "Heavy Machinery"),
     "stamina":         ("strength", "Stamina"),
+    "close_combat":    ("strength", "Close Combat"),
     "ranged_combat":   ("agility", "Ranged Combat"),
     "mobility":        ("agility", "Mobility"),
     "piloting":        ("agility", "Piloting"),
-    "close_combat":    ("agility", "Close Combat"),
     "observation":     ("wits",    "Observation"),
     "survival":        ("wits",    "Survival"),
     "comtech":         ("wits",    "Comtech"),
