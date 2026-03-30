@@ -7,11 +7,11 @@ Built for the *In Search of Typhon* campaign, designed to replace and extend tra
 ## Features
 
 - **Character Management** — Persistent character sheets with attributes, skills, health, and stress tracking
-- **Year Zero Engine Dice** — Full implementation of base dice, stress dice, successes, banes, and panic mechanics
+- **Year Zero Engine Dice** — Full implementation of base dice, stress dice, successes, and Stress Response mechanics
 - **Push Mechanic** — Reroll non-1s and non-6s at the cost of increased stress
 - **Interactive Sheets** — Discord embeds with clickable roll buttons for skills and attributes
-- **Condition Tracking** — Visual health and stress bars with automatic panic rolls
-- **Panic Table** — Full 15-entry panic table from Alien RPG Evolved Edition
+- **Condition Tracking** — Visual health and stress bars with stress response triggers
+- **Stress Response** — Immediate 1D6 roll when stress dice show 1s
 
 ## Commands
 
@@ -64,8 +64,8 @@ docker compose up -d
 Built for **Alien RPG** using the **Year Zero Engine**:
 - Roll pools of D6 (attribute + skill + stress)
 - Sixes are successes
-- Ones on base dice are banes
-- Ones on stress dice trigger panic rolls
+- Ones on base dice are normal results (no special display)
+- Ones on stress dice trigger immediate Stress Response rolls
 - Push mechanic allows rerolls at the cost of stress
 
 ## Development Status
