@@ -1,23 +1,17 @@
 # dice.py — Year Zero Engine dice mechanics for In Search of Typhon
 import random
 
-# Panic table from Alien RPG Evolved Edition
-PANIC_TABLE = {
-    1:  "Keeping it together. No effect.",
-    2:  "Trembling. -1 to all rolls until end of next turn.",
-    3:  "Dropping things. Drop whatever you're holding.",
-    4:  "Freezing. Lose your next slow action.",
-    5:  "Seeking cover. Must move to nearest cover immediately.",
-    6:  "Screaming. Lose both actions next turn.",
-    7:  "Fleeing. Must move away from threat as fast as possible.",
-    8:  "Berserk. Attack nearest person (friend or foe) next turn.",
-    9:  "Catatonic. Can't act until someone snaps you out of it.",
-    10: "Cardiac arrest. Take 1 damage, lose all actions next turn.",
-    11: "Permanent PTSD. Gain a permanent mental trauma.",
-    12: "Spreading panic. All allies must make a Panic Roll.",
-    13: "Heart attack. Broken immediately.",
-    14: "Comatose. Unconscious until end of scene.",
-    15: "Death wish. Actively try to get yourself killed this scene.",
+# Stress Response table from Alien RPG Evolved Edition.
+# Triggered immediately when any 1 appears on stress dice.
+# Roll 1D6 and apply the result — this is NOT a Panic Roll.
+# ⚠ Nova: please verify these entries verbatim against the Evolved Edition book.
+STRESS_RESPONSE_TABLE = {
+    1: "Adrenaline Rush. You may immediately take an extra fast action.",
+    2: "Nervous Tremors. -1 to all skill rolls until end of next round.",
+    3: "Drop It. Drop whatever you are holding.",
+    4: "Freeze. Lose your next fast action.",
+    5: "Flee. You must immediately move toward the nearest exit or away from the threat.",
+    6: "Panic Attack. You must immediately make a Panic Roll.",
 }
 
 def roll_dice(base_dice: int, stress_dice: int = 0):
@@ -45,13 +39,13 @@ def roll_dice(base_dice: int, stress_dice: int = 0):
 
     # Count banes (1s)
     base_banes = base_results.count(1)
-    stress_banes = stress_results.count(1)  # These trigger panic check
+    stress_banes = stress_results.count(1)  # These trigger Stress Response
 
     # Can we push? (there are dice showing something other than 1 or 6)
     pushable = any(d not in (1, 6) for d in base_results + stress_results)
 
-    # Does stress trigger a panic check?
-    panic_triggered = stress_banes > 0
+    # Does stress trigger a Stress Response?
+    stress_response_triggered = stress_banes > 0
 
     return {
         "base_dice": base_dice,
@@ -63,7 +57,7 @@ def roll_dice(base_dice: int, stress_dice: int = 0):
         "total_successes": total_successes,
         "base_banes": base_banes,
         "stress_banes": stress_banes,
-        "panic_triggered": panic_triggered,
+        "stress_response_triggered": stress_response_triggered,
         "pushable": pushable,
         "was_pushed": False,
     }
@@ -98,23 +92,22 @@ def push_roll(previous_roll: dict):
         "total_successes": base_successes + stress_successes,
         "base_banes": new_base.count(1),
         "stress_banes": stress_banes,
-        "panic_triggered": stress_banes > 0,
+        "stress_response_triggered": stress_banes > 0,
         "pushable": False,  # Can only push once
         "was_pushed": True,
     }
 
-def panic_roll(stress: int):
+def stress_response_roll():
     """
-    Roll on the panic table.
-    Roll 1D6 and add current Stress, capped at 15.
+    Roll on the Stress Response table (Alien RPG Evolved Edition).
+    Triggered when any 1 appears on stress dice.
+    Roll 1D6 — no modifier — and apply the result immediately.
+    This is NOT a Panic Roll.
     """
     roll = random.randint(1, 6)
-    result = min(roll + stress, 15)
     return {
         "d6_roll": roll,
-        "stress": stress,
-        "total": result,
-        "effect": PANIC_TABLE[result],
+        "effect": STRESS_RESPONSE_TABLE[roll],
     }
 
 def format_dice_roll(result: dict, skill_name: str = "Roll") -> str:
@@ -126,8 +119,8 @@ def format_dice_roll(result: dict, skill_name: str = "Roll") -> str:
     def dice_emoji(value, is_stress=False):
         if value == 6:
             return "✅"  # Success
-        elif value == 1:
-            return "💀" if is_stress else "⚠️"  # Panic / Bane
+        elif value == 1 and is_stress:
+            return "💀"  # Stress Response trigger
         else:
             return f"[{value}]"
 
@@ -150,11 +143,8 @@ def format_dice_roll(result: dict, skill_name: str = "Roll") -> str:
     else:
         lines.append(f"**Result: {result['total_successes']} SUCCESS{'ES' if result['total_successes'] > 1 else ''}**")
 
-    if result["base_banes"] > 0:
-        lines.append(f"⚠️ {result['base_banes']} bane(s) on base dice")
-
-    if result["panic_triggered"]:
-        lines.append(f"💀 **PANIC TRIGGERED** — roll on the panic table!")
+    if result["stress_response_triggered"]:
+        lines.append(f"💀 **STRESS RESPONSE** — rolling on the Stress Response table!")
     elif result["pushable"] and not result["was_pushed"]:
         lines.append("*You may Push this roll (costs 1 Stress)*")
 

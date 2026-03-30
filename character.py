@@ -6,7 +6,7 @@ from database import (
     get_character, update_character_field,
     save_last_roll, get_last_roll
 )
-from dice import roll_dice, push_roll, panic_roll, format_dice_roll
+from dice import roll_dice, push_roll, stress_response_roll, format_dice_roll
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -165,15 +165,12 @@ class AttributeRollButton(Button):
 
         await save_last_roll(self.user_id, result, self.label)
 
-        # If panic triggered, increase stress and do panic roll
-        if result["panic_triggered"]:
-            new_stress = min(char["stress"] + 1, 10)
-            await update_character_field(self.user_id, "stress", new_stress)
-            pr = panic_roll(new_stress)
+        # If a stress die showed 1, trigger a Stress Response (not a Panic Roll)
+        if result["stress_response_triggered"]:
+            sr = stress_response_roll()
             formatted += (
-                f"\n\n**PANIC ROLL:** 1D6({pr['d6_roll']}) + "
-                f"Stress({pr['stress']}) = **{pr['total']}**\n"
-                f"*{pr['effect']}*"
+                f"\n\n**STRESS RESPONSE:** 1D6 = **{sr['d6_roll']}**\n"
+                f"*{sr['effect']}*"
             )
 
         await interaction.response.send_message(formatted)
@@ -214,14 +211,11 @@ class SkillRollButton(Button):
 
         await save_last_roll(self.user_id, result, self.label_text)
 
-        if result["panic_triggered"]:
-            new_stress = min(char["stress"] + 1, 10)
-            await update_character_field(self.user_id, "stress", new_stress)
-            pr = panic_roll(new_stress)
+        if result["stress_response_triggered"]:
+            sr = stress_response_roll()
             formatted += (
-                f"\n\n**PANIC ROLL:** 1D6({pr['d6_roll']}) + "
-                f"Stress({pr['stress']}) = **{pr['total']}**\n"
-                f"*{pr['effect']}*"
+                f"\n\n**STRESS RESPONSE:** 1D6 = **{sr['d6_roll']}**\n"
+                f"*{sr['effect']}*"
             )
 
         await interaction.response.send_message(formatted)
@@ -270,12 +264,11 @@ class PushButton(Button):
 
         await save_last_roll(self.user_id, pushed, skill_name)
 
-        if pushed["panic_triggered"]:
-            pr = panic_roll(new_stress)
+        if pushed["stress_response_triggered"]:
+            sr = stress_response_roll()
             formatted += (
-                f"\n\n**PANIC ROLL:** 1D6({pr['d6_roll']}) + "
-                f"Stress({pr['stress']}) = **{pr['total']}**\n"
-                f"*{pr['effect']}*"
+                f"\n\n**STRESS RESPONSE:** 1D6 = **{sr['d6_roll']}**\n"
+                f"*{sr['effect']}*"
             )
 
         await interaction.response.send_message(formatted)
