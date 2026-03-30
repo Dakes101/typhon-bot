@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from database import init_db, create_character, get_character, update_character_field
 from character import build_character_embed, CharacterSheetView
+from dice import panic_roll
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -221,6 +222,65 @@ async def stress_cmd(interaction: discord.Interaction, amount: int):
         f"**{char['name']}** {direction} {abs(amount)} stress. "
         f"Stress: {new_stress}/10"
     )
+
+
+@tree.command(name="panicroll", description="Make a Panic Roll (1D6 + Stress)")
+@app_commands.describe(stress="Override your Stress value (optional if you have a character)")
+async def panicroll_cmd(interaction: discord.Interaction, stress: int = None):
+    # Determine stress value
+    current_stress = stress
+    character_name = None
+
+    if stress is None:
+        # Try to look up character
+        char = await get_character(str(interaction.user.id))
+        if not char:
+            await interaction.response.send_message(
+                "You don't have a registered character. Provide your current Stress score:\n"
+                "`/panicroll stress:4`",
+                ephemeral=True
+            )
+            return
+        current_stress = char["stress"]
+        character_name = char["name"]
+
+    # Roll panic
+    result = panic_roll(current_stress)
+
+    # Determine embed color based on result severity
+    capped_total = result["capped_total"]
+    if capped_total >= 11:  # Scream, Flee, Berserk
+        embed_color = discord.Color.red()
+    elif capped_total >= 7:  # Nervous through Seek Cover
+        embed_color = discord.Color.orange()
+    else:  # Keep Your Cool
+        embed_color = discord.Color.greyple()
+
+    # Build embed
+    embed = discord.Embed(
+        title="🎲 Panic Roll",
+        color=embed_color
+    )
+
+    if character_name:
+        embed.add_field(name="Character", value=character_name, inline=False)
+
+    embed.add_field(name="Die Roll", value=f"🎲 1D6 = **{result['d6_roll']}**", inline=True)
+    embed.add_field(name="Stress Added", value=f"**{result['stress_added']}**", inline=True)
+
+    if result["total"] > 13:
+        total_display = f"{result['total']} (capped to 13)"
+    else:
+        total_display = str(result["total"])
+    embed.add_field(name="Total", value=f"**{total_display}**", inline=True)
+
+    embed.add_field(
+        name="Result",
+        value=f"**Entry {result['capped_total']}:** {result['effect']}",
+        inline=False
+    )
+
+    await interaction.response.send_message(embed=embed)
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────

@@ -110,6 +110,39 @@ def stress_response_roll():
         "effect": STRESS_RESPONSE_TABLE[roll],
     }
 
+# Panic Roll table from Alien RPG Evolved Edition.
+# Triggered when Stress Response result 6 (Panic Attack) occurs, or manually via /panicroll.
+# Roll 1D6 and add the character's current Stress score.
+# ⚠ Nova: verify all 8 entries verbatim against the Evolved Edition book before shipping.
+PANIC_ROLL_TABLE = {
+    6:  "Keep Your Cool. Nothing happens. This round is no different from any other.",
+    7:  "Nervous. −1 to all dice rolls until end of the scene.",
+    8:  "Trembling. Drop whatever you are holding.",
+    9:  "Paralyzed. Lose all your actions next round.",
+    10: "Seek Cover. Move behind the nearest cover; cannot perform any other actions this round.",
+    11: "Scream. All friendly PCs and NPCs within Short range must immediately make a Panic Roll.",
+    12: "Flee. You must flee by any available means until end of the scene.",
+    13: "Berserk. Attack the nearest creature, friend or foe, until end of scene or you are Broken.",
+}
+
+def panic_roll(stress: int):
+    """
+    Roll on the Panic Roll table (Alien RPG Evolved Edition).
+    Roll 1D6 and add current Stress, capped at 13.
+    All results ≤6 map to entry 6 (Keep Your Cool).
+    """
+    d6_roll = random.randint(1, 6)
+    total = d6_roll + stress
+    capped_total = max(min(total, 13), 6)  # Cap at 13, floor at 6
+
+    return {
+        "d6_roll": d6_roll,
+        "stress_added": stress,
+        "total": total,
+        "capped_total": capped_total,
+        "effect": PANIC_ROLL_TABLE[capped_total],
+    }
+
 def format_dice_roll(result: dict, skill_name: str = "Roll") -> str:
     """
     Format a roll result as a readable string for Discord.
