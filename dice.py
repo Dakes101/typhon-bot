@@ -14,7 +14,7 @@ STRESS_RESPONSE_TABLE = {
     6: "Panic Attack. You must immediately make a Panic Roll.",
 }
 
-def roll_dice(base_dice: int, stress_dice: int = 0):
+def roll_dice(base_dice: int, stress_dice: int = 0, modifier: int = 0):
     """
     Roll Year Zero Engine dice pool.
 
@@ -27,9 +27,10 @@ def roll_dice(base_dice: int, stress_dice: int = 0):
     # Make sure we're not rolling negative dice
     base_dice = max(0, base_dice)
     stress_dice = max(0, stress_dice)
+    effective_base = max(1, base_dice + modifier) if (base_dice + modifier) > 0 else base_dice
 
     # Roll the dice
-    base_results = [random.randint(1, 6) for _ in range(base_dice)]
+    base_results = [random.randint(1, 6) for _ in range(effective_base)]
     stress_results = [random.randint(1, 6) for _ in range(stress_dice)]
 
     # Count successes (6s on any dice)
@@ -50,6 +51,7 @@ def roll_dice(base_dice: int, stress_dice: int = 0):
     return {
         "base_dice": base_dice,
         "stress_dice": stress_dice,
+        "modifier": modifier,
         "base_results": base_results,
         "stress_results": stress_results,
         "base_successes": base_successes,
@@ -85,6 +87,7 @@ def push_roll(previous_roll: dict):
     return {
         "base_dice": previous_roll["base_dice"],
         "stress_dice": previous_roll["stress_dice"],
+        "modifier": 0,
         "base_results": new_base,
         "stress_results": new_stress,
         "base_successes": base_successes,
@@ -160,8 +163,14 @@ def format_dice_roll(result: dict, skill_name: str = "Roll") -> str:
     base_display = " ".join(dice_emoji(d) for d in result["base_results"])
     stress_display = " ".join(dice_emoji(d, is_stress=True) for d in result["stress_results"])
 
+    modifier = result.get("modifier", 0)
+    modifier_tag = ""
+    if modifier and not result["was_pushed"]:
+        sign = "+" if modifier > 0 else ""
+        modifier_tag = f" `{sign}{modifier} modifier`"
+
     lines = []
-    lines.append(f"**{skill_name}**" + (" *(Pushed)*" if result["was_pushed"] else ""))
+    lines.append(f"**{skill_name}**{modifier_tag}" + (" *(Pushed)*" if result["was_pushed"] else ""))
     lines.append("")
 
     if result["base_results"]:

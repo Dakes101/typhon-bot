@@ -1,6 +1,6 @@
 # character.py — Character sheet display and button interactions
 import discord
-from discord.ui import View, Button
+from discord.ui import View, Button, Modal, TextInput
 import json
 from database import (
     get_character, update_character_field,
@@ -133,6 +133,58 @@ def build_character_embed(char: dict) -> discord.Embed:
     embed.set_footer(text="In Search of Typhon  •  Use the buttons below to roll")
     return embed
 
+# ── Roll Modifier Modal ───────────────────────────────────────────────────────
+
+class RollModifierModal(Modal, title="Add a Modifier?"):
+    """
+    Optional modifier prompt shown before each roll.
+    Positive values add dice (weapon bonus, talent, etc.).
+    Negative values remove dice (darkness, injury penalty, etc.).
+    Leave blank or enter 0 to roll unmodified.
+    """
+
+    modifier_input = TextInput(
+        label="Extra dice (+ weapon/talent, − penalty)",
+        placeholder="0  — leave blank for no modifier",
+        required=False,
+        max_length=4,
+    )
+
+    def __init__(self, user_id: str, dice_pool: int, stress_dice: int, label: str):
+        super().__init__()
+        self.user_id = user_id
+        self.dice_pool = dice_pool
+        self.stress_dice = stress_dice
+        self.label = label
+
+    async def on_submit(self, interaction: discord.Interaction):
+        raw = self.modifier_input.value.strip().lstrip("+")
+        try:
+            modifier = int(raw) if raw else 0
+        except ValueError:
+            await interaction.response.send_message(
+                "Modifier must be a whole number (e.g. `2`, `-1`, `0`).", ephemeral=True
+            )
+            return
+
+        result = roll_dice(
+            base_dice=self.dice_pool,
+            stress_dice=self.stress_dice,
+            modifier=modifier,
+        )
+        formatted = format_dice_roll(result, self.label)
+        await save_last_roll(self.user_id, result, self.label)
+
+        if result["stress_response_triggered"]:
+            sr = stress_response_roll()
+            formatted += (
+                f"\n\n**STRESS RESPONSE:** 1D6 = **{sr['d6_roll']}**\n"
+                f"*{sr['effect']}*"
+            )
+
+        await interaction.response.send_message(formatted)
+
+
 # ── Button Views ──────────────────────────────────────────────────────────────
 
 class AttributeRollButton(Button):
@@ -161,21 +213,13 @@ class AttributeRollButton(Button):
             )
             return
 
-        dice_pool = char[self.attribute]
-        result = roll_dice(base_dice=dice_pool, stress_dice=char["stress"])
-        formatted = format_dice_roll(result, self.label)
-
-        await save_last_roll(self.user_id, result, self.label)
-
-        # If a stress die showed 1, trigger a Stress Response (not a Panic Roll)
-        if result["stress_response_triggered"]:
-            sr = stress_response_roll()
-            formatted += (
-                f"\n\n**STRESS RESPONSE:** 1D6 = **{sr['d6_roll']}**\n"
-                f"*{sr['effect']}*"
-            )
-
-        await interaction.response.send_message(formatted)
+        modal = RollModifierModal(
+            user_id=self.user_id,
+            dice_pool=char[self.attribute],
+            stress_dice=char["stress"],
+            label=self.label,
+        )
+        await interaction.response.send_modal(modal)
 
 
 class SkillRollButton(Button):
@@ -207,20 +251,13 @@ class SkillRollButton(Button):
             )
             return
 
-        dice_pool = char[self.attribute] + char[self.skill_key]
-        result = roll_dice(base_dice=dice_pool, stress_dice=char["stress"])
-        formatted = format_dice_roll(result, self.label_text)
-
-        await save_last_roll(self.user_id, result, self.label_text)
-
-        if result["stress_response_triggered"]:
-            sr = stress_response_roll()
-            formatted += (
-                f"\n\n**STRESS RESPONSE:** 1D6 = **{sr['d6_roll']}**\n"
-                f"*{sr['effect']}*"
-            )
-
-        await interaction.response.send_message(formatted)
+        modal = RollModifierModal(
+            user_id=self.user_id,
+            dice_pool=char[self.attribute] + char[self.skill_key],
+            stress_dice=char["stress"],
+            label=self.label_text,
+        )
+        await interaction.response.send_modal(modal)
 
 
 class HealthAdjustButton(Button):
