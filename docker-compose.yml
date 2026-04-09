@@ -1,0 +1,9 @@
+services:
+  typhon-bot:
+    build: .
+    container_name: typhon-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
