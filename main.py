@@ -5,8 +5,8 @@ from discord.ext import commands
 import os
 from dotenv import load_dotenv
 
-from database import init_db, create_character, get_character, update_character_field
-from character import build_character_embed, CharacterSheetView, SkillSetupView
+from database import init_db, create_character, get_character, update_character_field, get_all_characters, delete_character
+from character import build_character_embed, CharacterSheetView, SkillSetupView, DeleteConfirmView
 from dice import panic_roll
 
 load_dotenv()
@@ -26,9 +26,14 @@ tree = bot.tree
 @bot.event
 async def on_ready():
     await init_db()
+    # Re-register persistent CharacterSheetViews so buttons keep working after restarts
+    chars = await get_all_characters()
+    for char in chars:
+        bot.add_view(CharacterSheetView(char))
     await tree.sync()
     print(f"In Search of Typhon bot online as {bot.user}")
     print(f"Connected to {len(bot.guilds)} server(s)")
+    print(f"Registered persistent views for {len(chars)} character(s)")
 
 # ── Commands ──────────────────────────────────────────────────────────────────
 
@@ -299,6 +304,23 @@ async def panicroll_cmd(
     )
 
     await interaction.response.send_message(embed=embed)
+
+
+@tree.command(name="deletecharacter", description="Permanently delete your character")
+async def deletecharacter_cmd(interaction: discord.Interaction):
+    char = await get_character(str(interaction.user.id))
+    if not char:
+        await interaction.response.send_message(
+            "You don't have a character to delete.", ephemeral=True
+        )
+        return
+
+    view = DeleteConfirmView(str(interaction.user.id), char["name"])
+    await interaction.response.send_message(
+        f"⚠️ Permanently delete **{char['name']}**? This cannot be undone.",
+        view=view,
+        ephemeral=True,
+    )
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────

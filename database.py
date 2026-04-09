@@ -134,6 +134,18 @@ async def get_character(discord_user_id: str):
             return dict(row)
 
 
+async def get_all_characters():
+    """
+    Fetch every character — used on startup to re-register persistent views.
+    Returns a list of dicts.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM characters") as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+
 async def update_character_field(discord_user_id: str, field: str, value):
     """
     Update a single field on a character.

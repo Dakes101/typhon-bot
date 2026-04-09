@@ -152,16 +152,19 @@ def format_dice_roll(result: dict, skill_name: str = "Roll") -> str:
     """
 
     # Build visual dice display
-    def dice_emoji(value, is_stress=False):
-        if value == 6:
-            return "✅"  # Success
-        elif value == 1 and is_stress:
-            return "💀"  # Stress Response trigger
-        else:
-            return f"[{value}]"
+    # Base dice shown as [N], stress dice as (N) — brackets vs parens for instant distinction
+    def base_die(value):
+        return "✅" if value == 6 else f"[{value}]"
 
-    base_display = " ".join(dice_emoji(d) for d in result["base_results"])
-    stress_display = " ".join(dice_emoji(d, is_stress=True) for d in result["stress_results"])
+    def stress_die(value):
+        if value == 6:
+            return "✅"
+        elif value == 1:
+            return "💀"
+        return f"({value})"
+
+    base_display   = " ".join(base_die(d)   for d in result["base_results"])
+    stress_display = " ".join(stress_die(d) for d in result["stress_results"])
 
     modifier = result.get("modifier", 0)
     modifier_tag = ""
@@ -169,25 +172,28 @@ def format_dice_roll(result: dict, skill_name: str = "Roll") -> str:
         sign = "+" if modifier > 0 else ""
         modifier_tag = f" `{sign}{modifier} modifier`"
 
+    # Result summary — shown first so it's visible without scrolling
+    s = result["total_successes"]
+    if s == 0:
+        result_line = "**FAILURE** — no successes"
+    else:
+        result_line = f"**{s} SUCCESS{'ES' if s > 1 else ''}** 🎯"
+
     lines = []
     lines.append(f"**{skill_name}**{modifier_tag}" + (" *(Pushed)*" if result["was_pushed"] else ""))
+    lines.append(result_line)
     lines.append("")
 
     if result["base_results"]:
-        lines.append(f"Base dice:   {base_display}")
+        lines.append(f"🟨 Base    {base_display}")
     if result["stress_results"]:
-        lines.append(f"Stress dice: {stress_display}")
-
-    lines.append("")
-
-    if result["total_successes"] == 0:
-        lines.append("**Result: FAILURE** — no successes")
-    else:
-        lines.append(f"**Result: {result['total_successes']} SUCCESS{'ES' if result['total_successes'] > 1 else ''}**")
+        lines.append(f"⬛ Stress  {stress_display}")
 
     if result["stress_response_triggered"]:
-        lines.append(f"💀 **STRESS RESPONSE** — rolling on the Stress Response table!")
+        lines.append("")
+        lines.append("💀 **STRESS RESPONSE** — rolling on the Stress Response table!")
     elif result["pushable"] and not result["was_pushed"]:
+        lines.append("")
         lines.append("*You may Push this roll (costs 1 Stress)*")
 
     return "\n".join(lines)

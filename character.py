@@ -492,6 +492,32 @@ class SkillSetupView(View):
         )
 
 
+class DeleteConfirmView(View):
+    """Ephemeral confirmation prompt for /deletecharacter."""
+
+    def __init__(self, user_id: str, char_name: str):
+        super().__init__(timeout=60)
+        self.user_id = user_id
+        self.char_name = char_name
+
+    @discord.ui.button(label="Yes, delete permanently", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: Button):
+        if str(interaction.user.id) != self.user_id:
+            return
+        from database import delete_character
+        await delete_character(self.user_id)
+        await interaction.response.edit_message(
+            content=f"**{self.char_name}** has been erased from the records.",
+            view=None,
+        )
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: Button):
+        if str(interaction.user.id) != self.user_id:
+            return
+        await interaction.response.edit_message(content="Cancelled.", view=None)
+
+
 class CharacterSheetView(View):
     """
     The full set of buttons for a character sheet.
