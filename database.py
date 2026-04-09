@@ -25,6 +25,7 @@ async def init_db():
                 agility INTEGER DEFAULT 2,
                 wits INTEGER DEFAULT 2,
                 empathy INTEGER DEFAULT 2,
+                resolve INTEGER DEFAULT 3,
 
                 -- Skills (0-5, added to attribute for dice pool)
                 heavy_machinery INTEGER DEFAULT 0,
@@ -58,10 +59,18 @@ async def init_db():
             )
         """)
         await db.commit()
+    # Migrate: add resolve column if it doesn't exist yet (added in v2)
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("PRAGMA table_info(characters)") as cursor:
+            columns = {row[1] async for row in cursor}
+        if "resolve" not in columns:
+            await db.execute("ALTER TABLE characters ADD COLUMN resolve INTEGER DEFAULT 3")
+            await db.commit()
+
     print(f"Database initialised at {DB_PATH}")
 
 
-async def create_character(discord_user_id: str, guild_id: str, name: str, 
+async def create_character(discord_user_id: str, guild_id: str, name: str,
                            career: str, age: int, attributes: dict, skills: dict):
     """
     Create a new character. Raises an error if the user already has one.
@@ -70,14 +79,14 @@ async def create_character(discord_user_id: str, guild_id: str, name: str,
         await db.execute("""
             INSERT INTO characters (
                 discord_user_id, discord_guild_id, name, career, age,
-                strength, agility, wits, empathy,
+                strength, agility, wits, empathy, resolve,
                 heavy_machinery, stamina, ranged_combat, mobility, piloting,
-                close_combat, observation, survival, comtech, 
+                close_combat, observation, survival, comtech,
                 manipulation, medical_aid, command,
                 max_health, health
             ) VALUES (
                 ?, ?, ?, ?, ?,
-                ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?,
@@ -89,6 +98,7 @@ async def create_character(discord_user_id: str, guild_id: str, name: str,
             attributes.get("agility", 2),
             attributes.get("wits", 2),
             attributes.get("empathy", 2),
+            attributes.get("resolve", 3),
             skills.get("heavy_machinery", 0),
             skills.get("stamina", 0),
             skills.get("ranged_combat", 0),
@@ -131,7 +141,7 @@ async def update_character_field(discord_user_id: str, field: str, value):
     """
     # Whitelist of fields that can be updated this way (security measure)
     allowed_fields = {
-        "health", "stress", "strength", "agility", "wits", "empathy",
+        "health", "stress", "strength", "agility", "wits", "empathy", "resolve",
         "heavy_machinery", "stamina", "ranged_combat", "mobility", "piloting",
         "close_combat", "observation", "survival", "comtech",
         "manipulation", "medical_aid", "command",

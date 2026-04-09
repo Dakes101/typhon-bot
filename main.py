@@ -41,6 +41,7 @@ async def on_ready():
     agility="Agility attribute (1-5)",
     wits="Wits attribute (1-5)",
     empathy="Empathy attribute (1-5)",
+    resolve="Resolve attribute (1-5) — used to resist Panic Rolls",
 )
 async def create_character_cmd(
     interaction: discord.Interaction,
@@ -51,6 +52,7 @@ async def create_character_cmd(
     agility: int,
     wits: int,
     empathy: int,
+    resolve: int = 3,
 ):
     # Check they don't already have a character
     existing = await get_character(str(interaction.user.id))
@@ -65,7 +67,7 @@ async def create_character_cmd(
     # Validate attributes
     for label, val in [
         ("Strength", strength), ("Agility", agility),
-        ("Wits", wits), ("Empathy", empathy)
+        ("Wits", wits), ("Empathy", empathy), ("Resolve", resolve)
     ]:
         if not 1 <= val <= 5:
             await interaction.response.send_message(
@@ -73,9 +75,9 @@ async def create_character_cmd(
             )
             return
 
-    if not 16 <= age <= 60:
+    if not 10 <= age <= 100:
         await interaction.response.send_message(
-            "Age must be between 16 and 60.", ephemeral=True
+            "Age must be between 10 and 100.", ephemeral=True
         )
         return
 
@@ -90,6 +92,7 @@ async def create_character_cmd(
             "agility": agility,
             "wits": wits,
             "empathy": empathy,
+            "resolve": resolve,
         },
         skills={}  # Skills added separately via /train
     )
@@ -224,28 +227,39 @@ async def stress_cmd(interaction: discord.Interaction, amount: int):
     )
 
 
-@tree.command(name="panicroll", description="Make a Panic Roll (1D6 + Stress)")
-@app_commands.describe(stress="Override your Stress value (optional if you have a character)")
-async def panicroll_cmd(interaction: discord.Interaction, stress: int = None):
-    # Determine stress value
+@tree.command(name="panicroll", description="Make a Panic Roll (1D6 + Stress - Resolve)")
+@app_commands.describe(
+    stress="Override your Stress value (optional if you have a character)",
+    resolve="Override your Resolve value (optional if you have a character)",
+)
+async def panicroll_cmd(
+    interaction: discord.Interaction,
+    stress: int = None,
+    resolve: int = None,
+):
+    # Determine stress and resolve values
     current_stress = stress
+    current_resolve = resolve
     character_name = None
 
-    if stress is None:
+    if stress is None or resolve is None:
         # Try to look up character
         char = await get_character(str(interaction.user.id))
         if not char:
             await interaction.response.send_message(
-                "You don't have a registered character. Provide your current Stress score:\n"
-                "`/panicroll stress:4`",
+                "You don't have a registered character. Provide your Stress and Resolve:\n"
+                "`/panicroll stress:4 resolve:3`",
                 ephemeral=True
             )
             return
-        current_stress = char["stress"]
+        if stress is None:
+            current_stress = char["stress"]
+        if resolve is None:
+            current_resolve = char.get("resolve", 3)
         character_name = char["name"]
 
     # Roll panic
-    result = panic_roll(current_stress)
+    result = panic_roll(current_stress, current_resolve)
 
     # Determine embed color based on result severity
     capped_total = result["capped_total"]
@@ -266,13 +280,14 @@ async def panicroll_cmd(interaction: discord.Interaction, stress: int = None):
         embed.add_field(name="Character", value=character_name, inline=False)
 
     embed.add_field(name="Die Roll", value=f"🎲 1D6 = **{result['d6_roll']}**", inline=True)
-    embed.add_field(name="Stress Added", value=f"**{result['stress_added']}**", inline=True)
+    embed.add_field(name="Stress", value=f"**+{result['stress_added']}**", inline=True)
+    embed.add_field(name="Resolve", value=f"**−{result['resolve']}**", inline=True)
 
-    if result["total"] > 13:
-        total_display = f"{result['total']} (capped to 13)"
+    if result["raw_total"] != result["capped_total"]:
+        total_display = f"{result['raw_total']} → capped to {result['capped_total']}"
     else:
-        total_display = str(result["total"])
-    embed.add_field(name="Total", value=f"**{total_display}**", inline=True)
+        total_display = str(result["capped_total"])
+    embed.add_field(name="Total (1D6 + Stress − Resolve)", value=f"**{total_display}**", inline=False)
 
     embed.add_field(
         name="Result",

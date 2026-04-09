@@ -89,11 +89,13 @@ def build_character_embed(char: dict) -> discord.Embed:
     )
 
     # ── Attributes ──
+    resolve = char.get("resolve", 3)
     attrs = (
         f"`STR` {attribute_dots(char['strength'])}  `{char['strength']}`\n"
         f"`AGI` {attribute_dots(char['agility'])}  `{char['agility']}`\n"
         f"`WIT` {attribute_dots(char['wits'])}  `{char['wits']}`\n"
-        f"`EMP` {attribute_dots(char['empathy'])}  `{char['empathy']}`"
+        f"`EMP` {attribute_dots(char['empathy'])}  `{char['empathy']}`\n"
+        f"`RES` {attribute_dots(resolve)}  `{resolve}`"
     )
     embed.add_field(name="ATTRIBUTES", value=attrs, inline=True)
 

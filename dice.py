@@ -125,20 +125,20 @@ PANIC_ROLL_TABLE = {
     13: "Berserk. Attack the nearest creature, friend or foe, until end of scene or you are Broken.",
 }
 
-def panic_roll(stress: int):
+def panic_roll(stress: int, resolve: int = 0):
     """
     Roll on the Panic Roll table (Alien RPG Evolved Edition).
-    Roll 1D6 and add current Stress, capped at 13.
-    All results ≤6 map to entry 6 (Keep Your Cool).
+    Roll 1D6 + Stress - Resolve, capped at 13, floored at 6 (Keep Your Cool).
     """
     d6_roll = random.randint(1, 6)
-    total = d6_roll + stress
-    capped_total = max(min(total, 13), 6)  # Cap at 13, floor at 6
+    raw_total = d6_roll + stress - resolve
+    capped_total = max(min(raw_total, 13), 6)
 
     return {
         "d6_roll": d6_roll,
         "stress_added": stress,
-        "total": total,
+        "resolve": resolve,
+        "raw_total": raw_total,
         "capped_total": capped_total,
         "effect": PANIC_ROLL_TABLE[capped_total],
     }
