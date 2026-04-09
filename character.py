@@ -223,6 +223,80 @@ class SkillRollButton(Button):
         await interaction.response.send_message(formatted)
 
 
+class HealthAdjustButton(Button):
+    """Increment or decrement health directly on the sheet."""
+
+    def __init__(self, delta: int, user_id: str):
+        label = "❤️ +HP" if delta > 0 else "🩸 −HP"
+        style = discord.ButtonStyle.success if delta > 0 else discord.ButtonStyle.secondary
+        super().__init__(
+            label=label,
+            style=style,
+            custom_id=f"health_{'+' if delta > 0 else '-'}_{user_id}"
+        )
+        self.delta = delta
+        self.user_id = user_id
+
+    async def callback(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != self.user_id:
+            await interaction.response.send_message(
+                "That's not your character sheet!", ephemeral=True
+            )
+            return
+
+        char = await get_character(self.user_id)
+        if not char:
+            await interaction.response.send_message(
+                "Character not found.", ephemeral=True
+            )
+            return
+
+        new_health = max(0, min(char["health"] + self.delta, char["max_health"]))
+        await update_character_field(self.user_id, "health", new_health)
+
+        char["health"] = new_health
+        embed = build_character_embed(char)
+        view = CharacterSheetView(char)
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class StressAdjustButton(Button):
+    """Increment or decrement stress directly on the sheet."""
+
+    def __init__(self, delta: int, user_id: str):
+        label = "😰 +Stress" if delta > 0 else "😌 −Stress"
+        style = discord.ButtonStyle.danger if delta > 0 else discord.ButtonStyle.success
+        super().__init__(
+            label=label,
+            style=style,
+            custom_id=f"stress_{'+' if delta > 0 else '-'}_{user_id}"
+        )
+        self.delta = delta
+        self.user_id = user_id
+
+    async def callback(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != self.user_id:
+            await interaction.response.send_message(
+                "That's not your character sheet!", ephemeral=True
+            )
+            return
+
+        char = await get_character(self.user_id)
+        if not char:
+            await interaction.response.send_message(
+                "Character not found.", ephemeral=True
+            )
+            return
+
+        new_stress = max(0, min(char["stress"] + self.delta, 10))
+        await update_character_field(self.user_id, "stress", new_stress)
+
+        char["stress"] = new_stress
+        embed = build_character_embed(char)
+        view = CharacterSheetView(char)
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
 class PushButton(Button):
     """Push the last roll — reroll non-1s and non-6s, gain 1 Stress."""
 
@@ -310,7 +384,13 @@ class CharacterSheetView(View):
                     if row > 3:
                         break  # Discord max 5 rows, keep row 4 for push
 
-        # Push button always on row 4
-        push_btn = PushButton(user_id)
-        push_btn.row = 4
-        self.add_item(push_btn)
+        # Row 4: health/stress adjustments + push (max 5 buttons per row)
+        for btn in [
+            HealthAdjustButton(-1, user_id),
+            HealthAdjustButton(+1, user_id),
+            StressAdjustButton(-1, user_id),
+            StressAdjustButton(+1, user_id),
+            PushButton(user_id),
+        ]:
+            btn.row = 4
+            self.add_item(btn)

@@ -106,6 +106,9 @@ async def create_character_cmd(
         embed=embed,
         view=view
     )
+    msg = await interaction.original_response()
+    await update_character_field(str(interaction.user.id), "sheet_message_id", str(msg.id))
+    await update_character_field(str(interaction.user.id), "sheet_channel_id", str(msg.channel.id))
 
 
 @tree.command(name="sheet", description="Display your character sheet")
@@ -121,6 +124,9 @@ async def sheet_cmd(interaction: discord.Interaction):
     embed = build_character_embed(char)
     view = CharacterSheetView(char)
     await interaction.response.send_message(embed=embed, view=view)
+    msg = await interaction.original_response()
+    await update_character_field(str(interaction.user.id), "sheet_message_id", str(msg.id))
+    await update_character_field(str(interaction.user.id), "sheet_channel_id", str(msg.channel.id))
 
 
 @tree.command(name="train", description="Add points to a skill")
