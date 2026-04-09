@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 from database import init_db, create_character, get_character, update_character_field
-from character import build_character_embed, CharacterSheetView
+from character import build_character_embed, CharacterSheetView, SkillSetupView
 from dice import panic_roll
 
 load_dotenv()
@@ -99,16 +99,13 @@ async def create_character_cmd(
 
     char = await get_character(str(interaction.user.id))
     embed = build_character_embed(char)
-    view = CharacterSheetView(char)
+    view = SkillSetupView(char)
 
     await interaction.response.send_message(
-        f"Welcome to the crew, **{name}**. Try not to die.",
+        f"Character created! Pick your starting skills, **{name}** — or skip and use `/train` later.",
         embed=embed,
-        view=view
+        view=view,
     )
-    msg = await interaction.original_response()
-    await update_character_field(str(interaction.user.id), "sheet_message_id", str(msg.id))
-    await update_character_field(str(interaction.user.id), "sheet_channel_id", str(msg.channel.id))
 
 
 @tree.command(name="sheet", description="Display your character sheet")

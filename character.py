@@ -67,6 +67,14 @@ SKILLS = {
     "command":         ("empathy", "Command"),
 }
 
+# Ordered skill groups for character creation selection UI
+SKILL_GROUPS = [
+    ("STR Skills", [("heavy_machinery", "Heavy Machinery"), ("stamina", "Stamina"), ("close_combat", "Close Combat")]),
+    ("AGI Skills", [("ranged_combat", "Ranged Combat"), ("mobility", "Mobility"), ("piloting", "Piloting")]),
+    ("WIT Skills", [("observation", "Observation"), ("survival", "Survival"), ("comtech", "Comtech")]),
+    ("EMP Skills", [("manipulation", "Manipulation"), ("medical_aid", "Medical Aid"), ("command", "Command")]),
+]
+
 # ── Embed builder ─────────────────────────────────────────────────────────────
 
 def build_character_embed(char: dict) -> discord.Embed:
@@ -385,6 +393,103 @@ class PushButton(Button):
             )
 
         await interaction.response.send_message(formatted)
+
+
+class SkillGroupSelect(discord.ui.Select):
+    """A multi-select dropdown for one attribute group's skills during character creation."""
+
+    def __init__(self, group_label: str, skills: list, user_id: str):
+        options = [
+            discord.SelectOption(label=label, value=key, description=f"Start with 1 point in {label}")
+            for key, label in skills
+        ]
+        super().__init__(
+            placeholder=f"{group_label} — select skills to start with",
+            min_values=0,
+            max_values=len(skills),
+            options=options,
+        )
+        self.user_id = user_id
+        self.skill_keys = [key for key, _ in skills]
+
+    async def callback(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != self.user_id:
+            await interaction.response.send_message(
+                "That's not your character!", ephemeral=True
+            )
+            return
+        view: SkillSetupView = self.view
+        for key in self.skill_keys:
+            view.selected_skills[key] = 1 if key in self.values else 0
+        await interaction.response.defer()
+
+
+class SkillSetupView(View):
+    """
+    Shown immediately after character creation.
+    Four dropdowns let the player pick one starting point in any skills they want.
+    Confirm transitions the message to the live CharacterSheetView.
+    """
+
+    def __init__(self, char: dict):
+        super().__init__(timeout=300)
+        self.user_id = char["discord_user_id"]
+        self.char_name = char["name"]
+        self.selected_skills = {key: 0 for _, skills in SKILL_GROUPS for key, _ in skills}
+
+        for i, (group_label, skills) in enumerate(SKILL_GROUPS):
+            select = SkillGroupSelect(group_label, skills, self.user_id)
+            select.row = i
+            self.add_item(select)
+
+        confirm_btn = discord.ui.Button(
+            label="✓ Confirm Skills",
+            style=discord.ButtonStyle.success,
+            row=4,
+        )
+        confirm_btn.callback = self._confirm
+        skip_btn = discord.ui.Button(
+            label="Skip — train later",
+            style=discord.ButtonStyle.secondary,
+            row=4,
+        )
+        skip_btn.callback = self._skip
+        self.add_item(confirm_btn)
+        self.add_item(skip_btn)
+
+    async def _save_and_transition(self, interaction: discord.Interaction, content: str):
+        """Save selected skills, then replace this view with the live CharacterSheetView."""
+        for skill_key, points in self.selected_skills.items():
+            if points > 0:
+                await update_character_field(self.user_id, skill_key, points)
+
+        char = await get_character(self.user_id)
+        embed = build_character_embed(char)
+        view = CharacterSheetView(char)
+        await interaction.response.edit_message(content=content, embed=embed, view=view)
+        await update_character_field(self.user_id, "sheet_message_id", str(interaction.message.id))
+        await update_character_field(self.user_id, "sheet_channel_id", str(interaction.message.channel.id))
+
+    async def _confirm(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != self.user_id:
+            await interaction.response.send_message(
+                "That's not your character!", ephemeral=True
+            )
+            return
+        trained = [k for k, v in self.selected_skills.items() if v > 0]
+        summary = f"Skills locked in ({len(trained)} trained). Try not to die, **{self.char_name}**."
+        await self._save_and_transition(interaction, summary)
+
+    async def _skip(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != self.user_id:
+            await interaction.response.send_message(
+                "That's not your character!", ephemeral=True
+            )
+            return
+        await self._save_and_transition(
+            interaction,
+            f"Welcome to the crew, **{self.char_name}**. Use `/train` to add skills later.",
+        )
 
 
 class CharacterSheetView(View):
